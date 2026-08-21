@@ -1,0 +1,160 @@
+{% load static %}<!DOCTYPE html>
+<html lang="uk" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="{% block meta_description %}Шкільні Завдання — шкільна платформа для перегляду та виконання навчальних завдань{% endblock %}">
+    <title>{% block title %}Шкільні Завдання{% endblock %} | Шкільні Завдання</title>
+
+    <!-- Локальний CSS (без CDN — офлайн-сумісний) -->
+    <link rel="stylesheet" href="{% static 'css/main.css' %}">
+
+    <!-- Фавіконка (inline SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📚</text></svg>">
+
+    {% block extra_head %}{% endblock %}
+
+    <!-- Inline-скрипт для теми (виконується до завантаження сторінки) -->
+    <script>
+        (function(){
+            var t = localStorage.getItem('sn-theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark' : 'light');
+            document.documentElement.setAttribute('data-theme', t);
+        })();
+    </script>
+</head>
+<body>
+<!-- Глобальний індикатор завантаження переходів (Top Progress Bar) -->
+<div id="global-progress-bar"></div>
+
+<!-- ═══ НАВБАР ═══════════════════════════════════════════════════════════════ -->
+<nav class="navbar" role="navigation" aria-label="Головна навігація">
+    <div class="navbar-inner">
+
+        <!-- Логотип -->
+        <a href="{% url 'index' %}" class="navbar-brand" aria-label="Шкільні Завдання — на головну">
+            <div class="brand-icon" aria-hidden="true">📚</div>
+            <span>Шкільні Завдання</span>
+        </a>
+
+        <!-- Пошук (тільки на десктопі) -->
+        <form class="navbar-search" method="GET" action="{% url 'index' %}" role="search">
+            <span class="search-icon" aria-hidden="true">🔍</span>
+            <input
+                id="navbar-search"
+                type="search"
+                name="q"
+                value="{{ query|default:'' }}"
+                placeholder="Пошук завдань..."
+                aria-label="Пошук завдань"
+            >
+            {% if selected_class_id %}
+                <input type="hidden" name="class" value="{{ selected_class_id }}">
+            {% endif %}
+        </form>
+
+        <!-- Дії -->
+        <div class="navbar-actions">
+            <!-- Мобільне меню -->
+            <button id="mobile-menu-btn" class="theme-toggle" aria-label="Відкрити меню класів" style="display:none">
+                ☰
+            </button>
+
+            <!-- Перемикач теми -->
+            <button id="theme-toggle-btn" class="theme-toggle" aria-label="Перемикач теми">
+                🌙
+            </button>
+
+            <!-- Вхід вчителя / Панель -->
+            {% if user.is_authenticated and user.teacher_profile %}
+                <a href="{% url 'assignment_create' %}" class="btn btn-secondary btn-sm" style="gap:6px; background: var(--color-success-light); color: var(--color-success); border-color: var(--color-success)">
+                    ➕ <span class="nav-btn-text">Нове завдання</span>
+                </a>
+                <a href="{% url 'teacher_dashboard' %}" class="btn btn-primary btn-sm" style="gap:6px">
+                    ⚙️ <span>Панель</span>
+                </a>
+            {% else %}
+                <a href="{% url 'teacher_login' %}" class="btn btn-secondary btn-sm">
+                    🔐 Вчитель
+                </a>
+            {% endif %}
+        </div>
+    </div>
+</nav>
+
+<!-- ═══ ПОВІДОМЛЕННЯ ══════════════════════════════════════════════════════════ -->
+{% if messages %}
+<div class="messages-container" aria-live="polite">
+    {% for message in messages %}
+    <div class="alert alert-{{ message.tags|default:'info' }}" role="alert">
+        <span>
+            {% if message.tags == 'success' %}✅{% elif message.tags == 'error' %}❌{% elif message.tags == 'warning' %}⚠️{% else %}ℹ️{% endif %}
+        </span>
+        <span>{{ message }}</span>
+        <button class="alert-close" aria-label="Закрити">✕</button>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- ═══ КОНТЕНТ ═══════════════════════════════════════════════════════════════ -->
+<main>
+    {% block content %}{% endblock %}
+</main>
+
+<!-- ═══ FOOTER ════════════════════════════════════════════════════════════════ -->
+<footer class="site-footer">
+    Шкільні Завдання &bull; Локальна шкільна мережа &bull; Працює офлайн 🌐
+</footer>
+
+<!-- ═══ МОДАЛЬНЕ ВІКНО ЗАВДАННЯ ═══════════════════════════════════════════════ -->
+<div id="assignment-modal-overlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal">
+        <div class="modal-header">
+            <h2 class="modal-title" id="modal-title">Завдання</h2>
+            <button class="modal-close" id="modal-close-btn" aria-label="Закрити">✕</button>
+        </div>
+        <div class="modal-body" id="modal-body-content">
+            <!-- Заповнюється через JavaScript -->
+            <div style="padding:60px;display:flex;align-items:center;justify-content:center;">
+                <div class="spinner"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Локальний JavaScript (без CDN) -->
+<script src="{% static 'js/main.js' %}"></script>
+{% block extra_scripts %}{% endblock %}
+
+<!-- Mobile sidebar toggle visibility, Universal Heartbeat & Disconnect Notifier -->
+<script>
+    if (window.innerWidth <= 768) {
+        var mobileBtn = document.getElementById('mobile-menu-btn');
+        if (mobileBtn) mobileBtn.style.display = 'flex';
+    }
+
+    // Періодичний heartbeat кожні 15 сек на всіх сторінках (фіксує присутність і поточну сторінку)
+    function sendClientHeartbeat() {
+        var currentPath = window.location.pathname + window.location.search;
+        fetch('/api/heartbeat/?path=' + encodeURIComponent(currentPath), {
+            method: 'GET',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        }).catch(function(){});
+    }
+
+    // Запускаємо перший раз через 2 сек, потім кожні 15 сек
+    setTimeout(sendClientHeartbeat, 2000);
+    setInterval(sendClientHeartbeat, 15000);
+
+    // Сповіщення сервера про закриття вкладки або браузера
+    window.addEventListener('pagehide', function(e) {
+        // Якщо це не звичайний перехід між внутрішніми посиланнями
+        if (navigator.sendBeacon) {
+            navigator.sendBeacon('/api/client-disconnect/');
+        }
+    });
+</script>
+
+</body>
+</html>

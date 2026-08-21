@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Панель вчителя{% endblock %}
+
+{% block content %}
+<div class="page-wrapper">
+
+    <!-- ══ Заголовок ══════════════════════════════════════════════════════════ -->
+    <div class="dashboard-header">
+        <div class="d-flex align-center gap-3">
+            <!-- Аватар -->
+            {% if teacher.avatar_image %}
+            <img src="{{ teacher.avatar_image.url }}" alt="{{ teacher.full_name }}" class="teacher-avatar-img" style="width:48px;height:48px">
+            {% else %}
+            <div class="teacher-avatar"
+                 style="background:{{ teacher.avatar_color }};width:48px;height:48px;font-size:18px">
+                {{ teacher.get_initials }}
+            </div>
+            {% endif %}
+            <div>
+                <h1 class="dashboard-title">{{ teacher.full_name }}</h1>
+                <p class="text-muted text-sm">
+                    {% for subject in teacher.subjects.all %}{{ subject }}{% if not forloop.last %}, {% endif %}{% endfor %}
+                    &bull; {{ teacher.classes.all|length }} класів
+                </p>
+            </div>
+        </div>
+
+        <div class="d-flex gap-2 flex-wrap">
+            <a href="{% url 'teacher_profile' %}" class="btn btn-secondary btn-sm">
+                ✏️ Профіль
+            </a>
+            <a href="{% url 'assignment_create' %}" class="btn btn-primary">
+                ＋ Нове завдання
+            </a>
+            <a href="{% url 'index' %}" class="btn btn-secondary btn-sm">
+                👁 Стрічка
+            </a>
+            <form method="POST" action="{% url 'teacher_logout' %}" style="display:inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-secondary btn-sm">
+                    🚪 Вийти
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- ══ Статистика ═════════════════════════════════════════════════════════ -->
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:24px">
+        <div class="sidebar-card" style="padding:16px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:var(--color-success)">{{ counts.published }}</div>
+            <div class="text-muted text-sm">Опубліковано</div>
+        </div>
+        <div class="sidebar-card" style="padding:16px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:var(--color-text-muted)">{{ counts.draft }}</div>
+            <div class="text-muted text-sm">Чернетки</div>
+        </div>
+        <div class="sidebar-card" style="padding:16px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:var(--color-warning)">{{ counts.scheduled }}</div>
+            <div class="text-muted text-sm">Заплановано</div>
+        </div>
+        <div class="sidebar-card" style="padding:16px;text-align:center">
+            <div style="font-size:28px;font-weight:800;color:var(--color-info)">{{ counts.archived }}</div>
+            <div class="text-muted text-sm">Архів (&gt;14 днів)</div>
+        </div>
+    </div>
+
+    <!-- ══ Вкладки ════════════════════════════════════════════════════════════ -->
+    <div class="tabs" role="tablist" aria-label="Фільтр завдань за статусом" id="dashboard-tabs">
+        <a href="?tab=published"
+           data-tab="published"
+           class="tab-btn {% if tab == 'published' %}active{% endif %}"
+           role="tab" aria-selected="{% if tab == 'published' %}true{% else %}false{% endif %}"
+           onclick="return switchDashboardTab('published', this)">
+            ✅ Опубліковані
+            <span class="tab-count" id="count-published">{{ counts.published }}</span>
+        </a>
+        <a href="?tab=draft"
+           data-tab="draft"
+           class="tab-btn {% if tab == 'draft' %}active{% endif %}"
+           role="tab" aria-selected="{% if tab == 'draft' %}true{% else %}false{% endif %}"
+           onclick="return switchDashboardTab('draft', this)">
+            📝 Чернетки
+            <span class="tab-count" id="count-draft">{{ counts.draft }}</span>
+        </a>
+        <a href="?tab=scheduled"
+           data-tab="scheduled"
+           class="tab-btn {% if tab == 'scheduled' %}active{% endif %}"
+           role="tab" aria-selected="{% if tab == 'scheduled' %}true{% else %}false{% endif %}"
+           onclick="return switchDashboardTab('scheduled', this)">
+            ⏰ Заплановані
+            <span class="tab-count" id="count-scheduled">{{ counts.scheduled }}</span>
+        </a>
+        <a href="?tab=archived"
+           data-tab="archived"
+           class="tab-btn {% if tab == 'archived' %}active{% endif %}"
+           role="tab" aria-selected="{% if tab == 'archived' %}true{% else %}false{% endif %}"
+           onclick="return switchDashboardTab('archived', this)">
+            📦 Архів
+            <span class="tab-count" id="count-archived">{{ counts.archived }}</span>
+        </a>
+    </div>
+
+    <!-- ══ Зона списку завдань (динамічна з плавною анімацією) ═════════════════ -->
+    <div id="dashboard-list-zone">
+        {% include 'feed/teacher_dashboard_fragment.html' %}
+    </div>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+/* ─── Плавне анімаційне перемикання вкладок у панелі вчителя ──────────────── */
+var _currentDashboardTab = '{{ tab|default:"published" }}';
+var _dashboardTabAbort   = null;
+
+function switchDashboardTab(tabName, btnEl) {
+    if (!tabName) return false;
+    
+    // Оновлюємо активні класи на кнопках
+    document.querySelectorAll('#dashboard-tabs .tab-btn').forEach(function(b) {
+        b.classList.remove('active');
+        b.setAttribute('aria-selected', 'false');
+    });
+    if (btnEl) {
+        btnEl.classList.add('active');
+        btnEl.setAttribute('aria-selected', 'true');
+    }
+
+    _currentDashboardTab = tabName;
+
+    // Оновлюємо URL у браузері
+    var newUrl = window.location.pathname + '?tab=' + tabName;
+    try { window.history.pushState({ tab: tabName }, '', newUrl); } catch(e){}
+
+    var zone = document.getElementById('dashboard-list-zone');
+    if (!zone) return false;
+
+    // Запускаємо Top Progress Bar та плавну прозорість
+    if (window.startProgressBar) window.startProgressBar();
+    zone.style.opacity    = '0.4';
+    zone.style.transition = 'opacity 0.15s ease';
+
+    if (_dashboardTabAbort) {
+        try { _dashboardTabAbort.abort(); } catch(e){}
+    }
+    _dashboardTabAbort = new AbortController();
+
+    fetch('/teacher/?tab=' + tabName + '&fragment=1', {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' },
+        signal: _dashboardTabAbort.signal
+    })
+    .then(function(r) { return r.text(); })
+    .then(function(html) {
+        zone.innerHTML = html;
+        zone.style.opacity = '1';
+        if (window.finishProgressBar) window.finishProgressBar();
+    })
+    .catch(function(e) {
+        if (window.finishProgressBar) window.finishProgressBar();
+        if (e.name !== 'AbortError') {
+            zone.style.opacity = '1';
+        }
+    });
+
+    return false;
+}
+
+// Підтримка кнопок Назад/Вперед у браузері для вкладок панелі
+window.addEventListener('popstate', function(e) {
+    var params = new URLSearchParams(window.location.search);
+    var t = params.get('tab') || 'published';
+    var targetBtn = document.querySelector('#dashboard-tabs [data-tab="' + t + '"]');
+    if (targetBtn) {
+        switchDashboardTab(t, targetBtn);
+    }
+});
+</script>
+{% endblock %}

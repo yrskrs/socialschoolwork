@@ -1,0 +1,64 @@
+{% extends 'base.html' %}
+
+{% block title %}Вхід для вчителя{% endblock %}
+{% block meta_description %}Захищений вхід до панелі вчителя — Шкільні Завдання{% endblock %}
+
+{% block content %}
+<div class="login-page">
+    <div class="login-card">
+
+        <!-- Заголовок -->
+        <div class="login-header">
+            <div class="login-logo" aria-hidden="true">👩‍🏫</div>
+            <h1 class="login-title">Панель вчителя</h1>
+            <p class="login-subtitle">Введіть свої облікові дані для входу</p>
+        </div>
+
+        <!-- Форма -->
+        <form method="POST" action="{% url 'teacher_login' %}" novalidate>
+            {% csrf_token %}
+
+            <!-- Логін -->
+            <div class="form-group">
+                <label class="form-label required" for="{{ form.username.id_for_label }}">
+                    Логін
+                </label>
+                {{ form.username }}
+                {% if form.username.errors %}
+                <p class="form-error">{{ form.username.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Пароль -->
+            <div class="form-group">
+                <label class="form-label required" for="{{ form.password.id_for_label }}">
+                    Пароль
+                </label>
+                {{ form.password }}
+                {% if form.password.errors %}
+                <p class="form-error">{{ form.password.errors.0 }}</p>
+                {% endif %}
+            </div>
+
+            <!-- Помилки форми -->
+            {% if form.non_field_errors %}
+            <div class="alert alert-error" style="margin-bottom:16px">
+                ❌ {{ form.non_field_errors.0 }}
+            </div>
+            {% endif %}
+
+            <button type="submit" class="btn btn-primary w-full" style="margin-top:8px">
+                🔓 Увійти
+            </button>
+        </form>
+
+        <!-- Назад -->
+        <div style="text-align:center;margin-top:20px">
+            <a href="{% url 'index' %}" class="text-muted text-sm">
+                ← Повернутись до стрічки
+            </a>
+        </div>
+
+    </div>
+</div>
+{% endblock %}

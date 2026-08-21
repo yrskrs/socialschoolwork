@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ assignment.title }}{% endblock %}
+
+{% block content %}
+<div class="page-wrapper" style="max-width:760px">
+
+    <!-- Навігація та дії вчителя -->
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; flex-wrap:wrap; gap:10px;">
+        <a href="{% url 'index' %}" class="btn btn-secondary btn-sm">
+            ← Назад до стрічки
+        </a>
+
+        {% if user.is_authenticated and user.teacher_profile %}
+            {% if user.teacher_profile == assignment.teacher or user.is_superuser %}
+            <a href="{% url 'assignment_edit' assignment.id %}" class="btn btn-primary btn-sm" style="display:inline-flex; align-items:center; gap:6px; font-weight:600;">
+                ✏️ Редагувати завдання
+            </a>
+            {% endif %}
+        {% endif %}
+    </div>
+
+    <div class="form-card">
+        <!-- Шапка з акцентною лінією -->
+        <div class="card-accent" style="height:4px; background:var(--color-primary);"></div>
+
+        <div class="form-card-body">
+            <!-- Метадані -->
+            <div class="modal-meta" style="display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap;">
+                <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+                    {% for class in assignment.classes.all %}
+                    <span class="class-prominent-badge">
+                        <span class="class-icon">🏫</span>
+                        <span class="class-text">{{ class.name }}</span>
+                    </span>
+                    {% endfor %}
+
+                    {% if assignment.subject %}
+                    <span class="subject-tag" style="color:{{ assignment.subject.color }}; border-color:{{ assignment.subject.color }};">
+                        {{ assignment.subject.icon }} {{ assignment.subject }}
+                    </span>
+                    {% endif %}
+
+                    {% if assignment.is_individual %}
+                    <span class="individual-tag">👤 {{ assignment.student_display }}</span>
+                    {% endif %}
+
+                    {% if assignment.published_at %}
+                    <span class="publish-date-badge {{ assignment.age_badge_class }}">
+                        {% if assignment.is_published_today %}
+                        <span class="live-dot-pulse"></span>
+                        {% endif %}
+                        📅 {{ assignment.relative_published_display }}
+                    </span>
+                    {% endif %}
+
+                    {% if assignment.due_date %}
+                    <span class="due-badge">⏰ до {{ assignment.due_date|date:'d.m.Y' }}</span>
+                    {% endif %}
+
+                    {% if assignment.unarchived_at %}
+                    <span class="unarchive-badge" title="Завдання відновлено з архіву" style="font-size:12px; padding:3px 9px;">
+                        ♻️ Розархівовано {{ assignment.unarchived_at|date:'d.m.Y' }}
+                    </span>
+                    {% endif %}
+                </div>
+
+                {% if user.is_authenticated and user.teacher_profile %}
+                <span class="views-badge" title="Кількість унікальних переглядів учнями" style="font-size:12px; padding:3px 9px;">
+                    <span class="views-icon">👁️</span> {{ assignment.views_count }} переглядів
+                </span>
+                {% endif %}
+            </div>
+
+            <!-- Заголовок -->
+            <h1 style="font-size:1.4rem; font-weight:700; margin-bottom:8px; line-height:1.3;">
+                {{ assignment.title }}
+            </h1>
+
+            <!-- Вчитель -->
+            <div class="teacher-mini mb-4">
+                {% if assignment.teacher.avatar_image %}
+                <img src="{{ assignment.teacher.avatar_image.url }}" alt="{{ assignment.teacher.full_name }}" class="avatar-mini-img" style="width:26px; height:26px;">
+                {% else %}
+                <div class="avatar-mini" style="background:{{ assignment.teacher.avatar_color }}; width:26px; height:26px; font-size:11px;">
+                    {{ assignment.teacher.get_initials }}
+                </div>
+                {% endif %}
+                <span style="font-weight:600; font-size:13px;">{{ assignment.teacher.full_name }}</span>
+            </div>
+
+            <div class="divider"></div>
+
+            <!-- Опис -->
+            {% if assignment.description %}
+            <div class="modal-description" style="margin-top:16px;">{{ assignment.description }}</div>
+            {% endif %}
+
+            <!-- Посилання -->
+            {% if assignment.link_url %}
+            <div class="link-section mt-4">
+                <span>🔗</span>
+                <a href="{{ assignment.link_url }}" target="_blank" rel="noopener">
+                    {{ assignment.link_label|default:assignment.link_url }} ↗
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Додаткові посилання -->
+            {% if assignment.additional_links.all %}
+            <div class="link-section mt-2" style="flex-direction:column; align-items:flex-start; gap:6px;">
+                {% for link in assignment.additional_links.all %}
+                <div>
+                    <span>🔗</span>
+                    <a href="{{ link.url }}" target="_blank" rel="noopener">
+                        {{ link.label|default:link.url }} ↗
+                    </a>
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- YouTube відео (підтримка декількох відео) -->
+            {% if assignment.all_youtube_videos %}
+            <div class="mt-4">
+                <h2 style="font-size:13px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-text-muted); margin-bottom:12px;">
+                    ▶ Відеоматеріали ({{ assignment.all_youtube_videos|length }})
+                </h2>
+                <div style="display:flex; flex-direction:column; gap:16px;">
+                    {% for video in assignment.all_youtube_videos %}
+                    <div class="youtube-video-card" style="background:var(--color-bg-secondary); padding:12px; border-radius:var(--radius-lg); border:1px solid var(--color-border);">
+                        <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; flex-wrap:wrap; gap:8px;">
+                            <span style="font-size:13px; font-weight:600; color:var(--color-text-primary);">
+                                ▶ {{ video.title }}
+                            </span>
+                            <a href="{{ video.watch_url }}"
+                               target="_blank" rel="noopener noreferrer"
+                               class="btn btn-secondary btn-sm" style="font-size:12px; padding:3px 9px;">
+                                ▶ Відкрити на YouTube ↗
+                            </a>
+                        </div>
+                        <div style="position:relative; padding-bottom:56.25%; height:0; overflow:hidden; border-radius:var(--radius-md); box-shadow:var(--shadow-sm); background:#000;">
+                            <iframe src="{{ video.embed_url }}"
+                                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                                    allowfullscreen
+                                    referrerpolicy="strict-origin-when-cross-origin"
+                                    style="position:absolute; top:0; left:0; width:100%; height:100%; border:none; border-radius:var(--radius-md);">
+                            </iframe>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Файли -->
+            {% if assignment.files.all %}
+            <div class="files-section mt-4">
+                <h2 style="font-size:13px; font-weight:600; letter-spacing:0.05em; text-transform:uppercase; color:var(--color-text-muted); margin-bottom:10px;">
+                    📎 Прикріплені файли ({{ assignment.files.count }})
+                </h2>
+                <div class="file-list">
+                    {% for file in assignment.files.all %}
+                    <div class="file-item">
+                        <div class="file-icon-wrap">{{ file.get_file_icon }}</div>
+                        <div class="file-info">
+                            <div class="file-name">{{ file.original_name }}</div>
+                            <div class="file-size">{{ file.get_size_display }}</div>
+                        </div>
+                        <div class="file-actions">
+                            {% if file.is_browser_viewable %}
+                            <button type="button" class="btn-view" data-file-id="{{ file.id }}" data-file-name="{{ file.original_name }}" onclick="inlinePreviewFile(this.dataset.fileId, this.dataset.fileName)">
+                                👁 Переглянути
+                            </button>
+                            {% endif %}
+                            <a href="{{ file.file.url }}"
+                               download="{{ file.original_name }}"
+                               class="btn-download">
+                                ⬇ Завантажити
+                            </a>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Модальне вікно перегляду файлу (по центру екрану) -->
+<div id="file-preview-modal-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:9000; align-items:center; justify-content:center; padding:20px; box-sizing:border-box;">
+    <div style="background:var(--color-surface); border-radius:var(--radius-xl); width:100%; max-width:900px; max-height:90vh; display:flex; flex-direction:column; box-shadow:var(--shadow-xl); overflow:hidden;">
+        <div style="display:flex; align-items:center; justify-content:space-between; padding:14px 20px; background:var(--color-primary); flex-shrink:0;">
+            <span style="font-weight:700; font-size:14px; color:#fff;" id="inline-preview-title">👀 Перегляд файлу</span>
+            <button type="button" onclick="closeInlinePreview()" style="background:rgba(255,255,255,0.15); border:none; color:#fff; cursor:pointer; font-size:18px; font-weight:700; border-radius:50%; width:30px; height:30px; display:flex; align-items:center; justify-content:center;">✕</button>
+        </div>
+        <div id="inline-preview-content" style="padding:16px; flex:1; overflow-y:auto; overflow-x:auto; display:flex; flex-direction:column; align-items:center; justify-content:flex-start; background:var(--color-surface);">
+            <!-- Завантажується динамічно -->
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+// Close preview overlay when clicking outside
+document.getElementById('file-preview-modal-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closeInlinePreview();
+});
+
+function inlinePreviewFile(fileId, name) {
+    const overlay = document.getElementById('file-preview-modal-overlay');
+    const content = document.getElementById('inline-preview-content');
+    const title = document.getElementById('inline-preview-title');
+    
+    if (!overlay || !content || !title) return;
+    
+    title.textContent = '👀 Перегляд: ' + name;
+    content.innerHTML = '<div style="padding:40px 0; color:var(--color-text-muted);">⏳ Завантаження...</div>';
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+    
+    // Завантажуємо прев'ю з сервера
+    fetch('/assignment/file/' + fileId + '/preview/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.type === 'error') {
+                content.innerHTML = '<p style="color:var(--color-danger);">' + escHtml(data.message) + '</p>';
+            } else if (data.type === 'html') {
+                content.innerHTML = data.content;
+            } else if (data.type === 'text') {
+                content.innerHTML = '<pre style="text-align:left; white-space:pre-wrap; font-family:monospace; font-size:13px; background:var(--color-bg-secondary); padding:16px; border-radius:8px; border:1px solid var(--color-border); width:100%; max-height:500px; overflow-y:auto; margin:0; color:var(--color-text-primary);">' + highlightCode(data.content, data.lang) + '</pre>';
+            } else if (data.type === 'url') {
+                const url = data.url;
+                const fileType = data.file_type;
+                if (fileType === 'image') {
+                    content.innerHTML = '<img src="' + url + '" style="max-width:100%; height:auto; border-radius:8px; display:block; margin:0 auto; box-shadow:var(--shadow-sm);">';
+                } else if (fileType === 'pdf') {
+                    content.innerHTML = '<iframe src="' + url + '" style="width:100%; height:600px; border-radius:6px; border:none;"></iframe>';
+                } else if (fileType === 'video') {
+                    content.innerHTML = '<video controls autoplay style="width:100%; max-height:480px; border-radius:8px; outline:none;"><source src="' + url + '">Ваш браузер не підтримує відео.</video>';
+                } else if (fileType === 'audio') {
+                    content.innerHTML = '<div style="width:100%; padding:20px 0;"><audio controls autoplay style="width:100%;"><source src="' + url + '">Ваш браузер не підтримує аудіо.</audio></div>';
+                } else {
+                    content.innerHTML = '<p class="text-muted">Перегляд не підтримується для цього файлу.</p>';
+                }
+            }
+        })
+        .catch(() => {
+            content.innerHTML = '<p style="color:var(--color-danger);">Не вдалося завантажити прев\'ю для цього файлу.</p>';
+        });
+}
+
+function closeInlinePreview() {
+    const overlay = document.getElementById('file-preview-modal-overlay');
+    const content = document.getElementById('inline-preview-content');
+    if (overlay) overlay.style.display = 'none';
+    if (content) content.innerHTML = '';
+    document.body.style.overflow = '';
+}
+
+function highlightCode(code, lang) {
+    let escaped = escHtml(code);
+    const codeLangs = ['py', 'python', 'js', 'javascript', 'html', 'css', 'json', 'sh', 'cpp', 'h', 'c', 'java'];
+    
+    if (codeLangs.includes(String(lang || '').toLowerCase())) {
+        escaped = escaped.replace(/(\/\*[\s\S]*?\*\/|#.*|\/\/.*)/g, '<span class="code-comment">$1</span>');
+        escaped = escaped.replace(/(["'`])(.*?)\1/g, '<span class="code-string">$1$2$1</span>');
+        const keywords = /\b(def|class|import|from|return|if|elif|else|for|while|in|is|not|and|or|try|except|finally|with|as|lambda|pass|break|continue|global|nonlocal|assert|yield|del|None|True|False|var|let|const|function|new|delete|typeof|instanceof|void|this|super|export|default|extends|null|undefined|print|len|range|str|int|float|list|dict|set|tuple|type|console|log|document|window|await|async)\b/g;
+        escaped = escaped.replace(keywords, '<span class="code-keyword">$1</span>');
+        escaped = escaped.replace(/\b(\d+)\b/g, '<span class="code-number">$1</span>');
+    }
+    return escaped;
+}
+
+function escHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+</script>
+{% endblock %}
