@@ -10,10 +10,11 @@
 import sys
 import os
 
-# Придушення попереджень Qt пісочниці у Linux
-os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
-os.environ.setdefault("QT_LOGGING_RULES", "*.debug=false;qt.webenginecontext.debug=false")
-os.environ.setdefault("PYTHONWARNINGS", "ignore")
+# Придушення попереджень Qt пісочниці та Wayland у Linux
+os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--no-sandbox --disable-gpu-sandbox --disable-logging"
+os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.webenginecontext.debug=false;qt.qpa.*=false;qt.qpa.wayland*=false;qt.qpa.wayland.textinput*=false"
+os.environ["PYTHONWARNINGS"] = "ignore"
 
 import socket
 import json
@@ -29,11 +30,20 @@ from PyQt6.QtWidgets import (
     QPlainTextEdit, QGroupBox, QFrame, QSystemTrayIcon, QMenu,
     QMessageBox, QStatusBar, QFileDialog
 )
-from PyQt6.QtCore import Qt, QProcess, QTimer, QTime, QSettings, QUrl
+from PyQt6.QtCore import Qt, QProcess, QTimer, QTime, QSettings, QUrl, qInstallMessageHandler
 from PyQt6.QtGui import QTextCursor, QColor, QTextCharFormat, QAction, QDesktopServices
 
 BASE_DIR = Path(__file__).resolve().parent
 LOGS_DIR = BASE_DIR / 'logs'
+
+
+def qt_suppress_handler(mode, context, message):
+    """Приглушує некритичні системні повідомлення Wayland та Chromium Sandbox."""
+    msg_low = message.lower()
+    if any(k in msg_low for k in ("wayland", "sandbox", "zwp_text_input", "leave event", "user namespace")):
+        return
+    if mode in (3, 4):
+        sys.stderr.write(f"{message}\n")
 
 
 def get_local_ip_addresses():
@@ -382,6 +392,11 @@ class SchoolNetLauncher(QMainWindow):
         btn_open_teacher.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_open_teacher.clicked.connect(self.open_teacher_panel)
 
+        btn_user_manager = QPushButton("👥 Користувачі / Реєстрація")
+        btn_user_manager.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn_user_manager.setToolTip("Відкрити вікно реєстрації та керування користувачами")
+        btn_user_manager.clicked.connect(self.open_user_manager)
+
         btn_save_log = QPushButton("💾 Зберегти лог...")
         btn_save_log.setCursor(Qt.CursorShape.PointingHandCursor)
         btn_save_log.setToolTip("Експортувати весь журнал сесії у файл")
@@ -398,6 +413,7 @@ class SchoolNetLauncher(QMainWindow):
 
         log_bottom.addWidget(self.url_label, 1)
         log_bottom.addWidget(btn_open_teacher)
+        log_bottom.addWidget(btn_user_manager)
         log_bottom.addWidget(btn_save_log)
         log_bottom.addWidget(btn_open_logs_dir)
         log_bottom.addWidget(btn_clear_log)
@@ -750,6 +766,19 @@ class SchoolNetLauncher(QMainWindow):
     def open_teacher_panel(self):
         url = self.current_server_url or self.get_browser_accessible_url()
         webbrowser.open(url.rstrip('/') + '/teacher/')
+
+    def open_user_manager(self):
+        """Відкриває графічне вікно реєстрації та керування користувачами."""
+        try:
+            from user_manager import UserManagerWindow
+            if not hasattr(self, '_user_manager_win') or self._user_manager_win is None:
+                self._user_manager_win = UserManagerWindow(self)
+            self._user_manager_win.refresh_users_table()
+            self._user_manager_win.show()
+            self._user_manager_win.raise_()
+            self._user_manager_win.activateWindow()
+        except Exception as e:
+            QMessageBox.critical(self, "Помилка", f"Не вдалося відкрити вікно користувачів:\n{e}")
 
     def copy_server_link(self):
         url = self.current_server_url or self.get_browser_accessible_url()
@@ -1163,6 +1192,7 @@ class SchoolNetLauncher(QMainWindow):
 
 
 def main():
+    qInstallMessageHandler(qt_suppress_handler)
     app = QApplication(sys.argv)
     app.setApplicationName("SchoolNet Server Launcher")
     

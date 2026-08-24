@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # -*- coding: utf-8 -*-
-# Скрипт запуску SchoolNet для Linux / macOS
+# Скрипт запуску графічного інтерфейсу реєстрації та керування користувачами SchoolNet (Linux / macOS)
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
@@ -25,7 +25,7 @@ fi
 # 2. Перевірка та створення venv
 if [ ! -f "$SCRIPT_DIR/venv/bin/python" ]; then
     echo "========================================================"
-    echo "   Шкільні Завдання (SchoolNet) — Первинне налаштування"
+    echo "   SchoolNet — Реєстрація користувачів (Налаштування)"
     echo "========================================================"
     echo ""
     echo "📦 [1/3] Створення віртуального середовища (venv)..."
@@ -37,7 +37,7 @@ if [ ! -f "$SCRIPT_DIR/venv/bin/python" ]; then
     echo "✅ Віртуальне середовище створено."
     echo ""
 
-    echo "📥 [2/3] Встановлення бібліотек (Django, PyQt6 тощо)..."
+    echo "📥 [2/3] Встановлення бібліотек (PyQt6, Django тощо)..."
     "$SCRIPT_DIR/venv/bin/python" -m pip install --upgrade pip --quiet
     "$SCRIPT_DIR/venv/bin/pip" install -r "$SCRIPT_DIR/requirements.txt"
     echo "✅ Всі бібліотеки успішно встановлено."
@@ -47,5 +47,5 @@ if [ ! -f "$SCRIPT_DIR/venv/bin/python" ]; then
     "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/manage.py" migrate --no-input >/dev/null 2>&1 || true
 fi
 
-# 3. Запуск графічного інтерфейсу лаунчера
-exec "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/launcher.py" "$@"
+# 3. Запуск графічного інтерфейсу реєстрації користувачів
+exec "$SCRIPT_DIR/venv/bin/python" "$SCRIPT_DIR/user_manager.py" "$@"

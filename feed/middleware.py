@@ -31,6 +31,23 @@ def remove_client_ip(ip):
             del _active_clients[ip]
 
 
+def _safe_log(msg, is_error=False):
+    """
+    Безпечно записує повідомлення в stdout/stderr, запобігаючи падінню запиту через
+    помилки Windows I/O пайпів/консолі (наприклад OSError [Errno 22] Invalid argument на flush/write).
+    """
+    try:
+        stream = sys.stderr if is_error else sys.stdout
+        if stream is not None:
+            stream.write(msg)
+            try:
+                stream.flush()
+            except (OSError, ValueError):
+                pass
+    except Exception:
+        pass
+
+
 class OnlineClientsMiddleware:
     """
     Відстежує кожен вхідний HTTP-запит для:
@@ -65,8 +82,11 @@ class OnlineClientsMiddleware:
         except Exception as exc:
             # Фіксуємо помилку із вказанням конкретної IP клієнта
             err_msg = f"[КЛІЄНТ IP: {ip}] ❌ ПОМИЛКА 500 на {request.method} {path}: {type(exc).__name__}: {str(exc)}\n"
-            sys.stderr.write(err_msg)
-            traceback.print_exc()
+            _safe_log(err_msg, is_error=True)
+            try:
+                traceback.print_exc()
+            except Exception:
+                pass
             raise
 
         # Виводимо в консоль інформацію про запит із зазначенням IP комп'ютера
@@ -74,15 +94,14 @@ class OnlineClientsMiddleware:
             status = response.status_code
             if status >= 500:
                 log_line = f"[КЛІЄНТ IP: {ip}] ❌ \"{request.method} {path}\" {status}\n"
-                sys.stderr.write(log_line)
+                _safe_log(log_line, is_error=True)
             elif status >= 400:
                 log_line = f"[КЛІЄНТ IP: {ip}] ⚠️ \"{request.method} {path}\" {status}\n"
-                sys.stderr.write(log_line)
+                _safe_log(log_line, is_error=True)
             elif not path.startswith('/static/') and not path.startswith('/media/'):
                 # Для звичайних сторінок та API запитів
                 log_line = f"[КЛІЄНТ IP: {ip}] \"{request.method} {path}\" {status} OK\n"
-                sys.stdout.write(log_line)
-                sys.stdout.flush()
+                _safe_log(log_line, is_error=False)
 
         return response
 
@@ -90,7 +109,7 @@ class OnlineClientsMiddleware:
         ip = get_client_ip(request)
         path = request.get_full_path()
         err_msg = f"[КЛІЄНТ IP: {ip}] ❌ ВИНЯТОК на {request.method} {path}: {str(exception)}\n"
-        sys.stderr.write(err_msg)
+        _safe_log(err_msg, is_error=True)
         return None
 
 
